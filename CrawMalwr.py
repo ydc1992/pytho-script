@@ -1,6 +1,7 @@
 #coding:gb2312
 import StringIO,pycurl,re,urllib
 from bs4 import BeautifulSoup
+import os
 
 def Curl(url,**kwargs):
     b = StringIO.StringIO()
@@ -34,23 +35,33 @@ def login():
     Curl(loginurl,POSTFIELDS=post)
 
 def Test():
-    BeautifulSoup('lxml')
     pageurl = 'https://malwr.com/analysis/?page='
     login()
-    count = 0
+
     for i in range(1,500):
         try:
+            count = 0
             soup = BeautifulSoup(Curl(pageurl+'%d'%i)).select('.mono')  #先定位到子节点
             for s in soup:
                 data = Curl('https://malwr.com' + s.parent['href'])
-                downloadurl ='https://malwr.com'+ BeautifulSoup(data).select(".btn-primary.btn-small")[0]['href']
-                if downloadurl == 'https://malwr.com#':  # 文件没有被分享时的下载网址，跳过这一次循环直接下一次循环
+                bu = BeautifulSoup(data)
+                downloadurl ='https://malwr.com'+ bu.select(".btn-primary.btn-small")[0]['href']
+                date = bu.select("table.table.table-striped tbody tr td")[1].text.encode('utf-8')
+                date = re.findall('\d{4}\-\d{2}',date)[0].replace('-','.') #文件上传时间
+
+                path = os.path.join('d:\Malwar',date)
+                if not os.path.exists(path):
+                    os.mkdir(path)
+                if downloadurl == 'https://malwr.com#':
                     continue
                 count = count +1
                 print '爬取第%d页第%d样本'%(i,count)
-                open('D:\\Malwar\\' + downloadurl.split('/')[-2],'wb').write(Curl(downloadurl,NOPROGRESS=0) )
-        except pycurl.E_SSL_CONNECT_ERROR,e:
+                filename = os.path.join(path,downloadurl.split('/')[-2])
+                if os.path.exists(filename):
+                    print downloadurl.split('/')[-2] + 'is exists'
+                    continue
+                open(filename,'wb').write(Curl(downloadurl,NOPROGRESS=0) )
+        except pycurl.error,e:
             pass
-
 if __name__ == '__main__':
     Test()
